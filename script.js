@@ -25,6 +25,7 @@ const defaultState = { onboarded: false, name: "", partner: "", attire: false, c
 let state = loadState();
 let map;
 let roomParticipants = [];
+let roomStatuses = [];
 
 function loadState() {
   try {
@@ -64,9 +65,9 @@ function renderRoute() {
     const complete = state.completed.includes(stop.number);
     const isOptional = stop.role === "optional";
     return `<article class="stop-card ${complete ? "completed" : ""} ${next?.number === stop.number ? "current" : ""}">
-      <div class="stop-main"><span class="stop-number">${isOptional ? "+" : String(officialStops.indexOf(stop) + 1).padStart(2, "0")}</span><div class="stop-title"><h3>${stop.venue}</h3><small>${isOptional ? "Bonus stop · optional" : complete ? "Completed · nice work" : next?.number === stop.number ? "Up next" : "On the route"}</small></div><input class="stop-check" type="checkbox" aria-label="Mark ${stop.venue} complete" data-stop="${stop.number}" ${complete ? "checked" : ""}></div>
-      <div class="stop-rule"><b>RULE</b>${stop.rule}</div>
-      <div class="stop-detail">${stop.detail}</div>
+      <div class="stop-main"><span class="stop-number">${isOptional ? "+" : String(officialStops.indexOf(stop) + 1).padStart(2, "0")}</span><div class="stop-title"><h3>${escapeHtml(stop.venue)}</h3><small>${isOptional ? "Bonus stop · optional" : complete ? "Completed · nice work" : next?.number === stop.number ? "Up next" : "On the route"}</small></div><input class="stop-check" type="checkbox" aria-label="Mark ${escapeHtml(stop.venue)} complete" data-stop="${stop.number}" ${complete ? "checked" : ""}></div>
+      <div class="stop-rule"><b>RULE</b>${escapeHtml(stop.rule)}</div>
+      <div class="stop-detail">${escapeHtml(stop.detail)}</div>
       <div class="stop-actions"><a class="directions" href="${directions(stop)}" target="_blank" rel="noopener">⌖ Directions</a></div>
     </article>`;
   }).join("");
@@ -101,7 +102,7 @@ function addMarker(stop) {
   const markerIcon = L.divIcon({ className: "numbered-marker", html: `<span>${routeNumber}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] });
   const marker = L.marker([stop.lat, stop.lng], { icon: markerIcon }).addTo(map);
   marker.stopNumber = stop.number;
-  marker.bindPopup(`<strong>${routeNumber}. ${stop.venue}</strong><br><span>${stop.rule}</span><br><br><a href="${directions(stop)}" target="_blank">Get directions →</a>`);
+  marker.bindPopup(`<strong>${routeNumber}. ${escapeHtml(stop.venue)}</strong><br><span>${escapeHtml(stop.rule)}</span><br><br><a href="${directions(stop)}" target="_blank" rel="noopener">Get directions →</a>`);
 }
 function initMap() {
   if (map || !window.L) { if (!window.L) $("map").innerHTML = "<p style='padding:1rem;color:#aeb9aa'>Map unavailable offline. Use the Directions buttons on each stop.</p>"; return; }
@@ -163,9 +164,11 @@ function deterministicPairings(names) {
 async function loadRoom() {
   if (!roomCode()) return;
   const room = state.ownerKey
-    ? await supabaseRpc("get_pub_room_owner", { room_code: roomCode(), owner_key: state.ownerKey })
-    : await supabaseRpc("get_pub_room", { room_code: roomCode(), invite_key: state.roomKey });
+    ? await supabaseRpc("get_pub_room_owner", { p_room_code: roomCode(), p_owner_key: state.ownerKey })
+    : await supabaseRpc("get_pub_room", { p_room_code: roomCode(), p_invite_key: state.roomKey, p_attendee_name: state.name });
+  if (!state.ownerKey) room.announcements = await supabaseRpc("get_pub_announcements", { p_room_code: roomCode(), p_invite_key: state.roomKey });
   roomParticipants = room.participants || [];
+  roomStatuses = room.statuses || (roomParticipants.filter(person => person.status && person.status !== "No status set").map(person => ({ name: person.name, status: person.status })));
   state.roomName = room.room_name || state.roomName || roomCode();
   state.meetupSpot = room.meetup_spot || state.meetupSpot || "";
   if (Array.isArray(room.route) && room.route.length) setStops(room.route);
@@ -173,14 +176,67 @@ async function loadRoom() {
   const pairing = room.pairings?.[state.name];
   if (pairing) { state.partner = pairing.join(" & "); saveState(); renderHeader(); }
   renderRoomStatus(pairing ? room.pairings : null);
+  renderAnnouncements(room.announcements || []);
 }
 function renderRoomStatus(pairings) {
   const isOwner = Boolean(state.ownerKey);
-  $("roomStatus").innerHTML = roomCode() ? `<strong>${state.roomName || roomCode()}</strong><br><span>${roomCode()}${isOwner ? ` · ${roomParticipants.length} joined` : ""}</span>${isOwner ? `<br><span>${roomParticipants.map(person => person.name).join(" · ") || "No attendees yet."}</span>` : ""}${pairings?.[state.name] ? `<br><b>Your group: ${pairings[state.name].join(" & ") || "solo"}</b>` : ""}` : "";
+  const status = $("roomStatus");
+  status.replaceChildren();
+  if (!roomCode()) return;
+  const title = document.createElement("strong");
+  title.textContent = state.roomName || roomCode();
+  status.append(title, document.createElement("br"));
+  const code = document.createElement("span");
+  code.textContent = `${roomCode()}${isOwner ? ` · ${roomParticipants.length} joined` : ""}`;
+  status.append(code);
+  status.append(document.createElement("br"));
+  const statusHeading = document.createElement("b");
+  statusHeading.textContent = "Group statuses";
+  status.append(statusHeading, document.createElement("br"));
+  const statusText = document.createElement("span");
+  const visibleStatuses = isOwner
+    ? roomParticipants.map(person => `${person.name} — ${person.status || "No status set"}`)
+    : roomStatuses.map(person => `${person.name} — ${person.status}`);
+  statusText.textContent = visibleStatuses.join(" · ") || "No statuses posted yet.";
+  status.append(statusText);
+  if (isOwner) {
+    status.append(document.createElement("br"));
+    const attendees = document.createElement("span");
+    attendees.textContent = `${roomParticipants.length} attendee${roomParticipants.length === 1 ? "" : "s"} joined`;
+    status.append(attendees);
+  }
+  if (pairings?.[state.name]) {
+    status.append(document.createElement("br"));
+    const group = document.createElement("b");
+    group.textContent = `Your group: ${pairings[state.name].join(" & ") || "solo"}`;
+    status.append(group);
+  }
   $("generatePairingsButton").classList.toggle("hidden", !isOwner || roomParticipants.length < 2);
   $("copyInviteButton").classList.toggle("hidden", !roomCode() || !state.roomKey);
   $("routeEditor").classList.toggle("hidden", !isOwner);
+  $("organiserAnnouncementBox").classList.toggle("hidden", !isOwner);
+  $("attendeeStatusBox").classList.toggle("hidden", !roomCode() || !state.roomKey);
   if (isOwner) renderRouteEditor();
+}
+function renderAnnouncements(announcements) {
+  const panel = $("roomAnnouncements");
+  panel.replaceChildren();
+  if (!announcements.length) { panel.classList.add("hidden"); return; }
+  panel.classList.remove("hidden");
+  const heading = document.createElement("p");
+  heading.className = "room-box-title";
+  heading.textContent = "Room announcements";
+  panel.append(heading);
+  announcements.slice(0, 5).forEach(item => {
+    const announcement = document.createElement("div");
+    announcement.className = "announcement-item";
+    const message = document.createElement("span");
+    message.textContent = item.message;
+    const timestamp = document.createElement("small");
+    timestamp.textContent = item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+    announcement.append(message, timestamp);
+    panel.append(announcement);
+  });
 }
 function renderRouteEditor() {
   $("routeEditor").innerHTML = `<p class="room-box-title">Edit this room's route</p>${stops.map(stop => `<div class="route-edit-row" data-edit-stop="${stop.number}">
@@ -211,7 +267,7 @@ async function joinRoom() {
   const key = $("roomKeyInput").value.trim();
   if (!code || !key || !state.name) return showToast("Enter your name, room code, and invite key.");
   try {
-    await supabaseRpc("join_pub_room", { room_code: code, invite_key: key, attendee_name: state.name });
+    await supabaseRpc("join_pub_room", { p_room_code: code, p_invite_key: key, p_attendee_name: state.name });
     state.roomCode = code; state.roomKey = key; state.ownerKey = ""; saveState(); await loadRoom(); showToast(`Joined private room ${code}.`);
   } catch (error) { reportRoomError(error, "Could not join. Check the room code, invite key, and Supabase migration."); }
 }
@@ -220,9 +276,29 @@ async function generatePairings() {
     const names = roomParticipants.map(person => person.name);
     const pairings = deterministicPairings(names);
     if (!state.ownerKey) return showToast("Only the organiser can randomise this room.");
-    await supabaseRpc("update_pub_pairings", { room_code: roomCode(), owner_key: state.ownerKey, new_pairings: pairings });
+    await supabaseRpc("update_pub_pairings", { p_room_code: roomCode(), p_owner_key: state.ownerKey, p_new_pairings: pairings });
     await loadRoom(); showToast("Shared partners randomised for everyone.");
   } catch (error) { reportRoomError(error, "Could not randomise this room right now."); }
+}
+async function updateAttendeeStatus() {
+  const status = $("attendeeStatusInput").value.trim();
+  if (!status || !roomCode() || !state.roomKey) return showToast("Enter a status first.");
+  try {
+    await supabaseRpc("update_pub_status", { p_room_code: roomCode(), p_invite_key: state.roomKey, p_attendee_name: state.name, p_status: status });
+    $("attendeeStatusInput").value = "";
+    await loadRoom();
+    showToast("Your room status was updated.");
+  } catch (error) { reportRoomError(error, "Could not update your room status."); }
+}
+async function sendAnnouncement() {
+  const message = $("announcementInput").value.trim();
+  if (!message || !state.ownerKey) return showToast("Write an announcement first.");
+  try {
+    await supabaseRpc("post_pub_announcement", { p_room_code: roomCode(), p_owner_key: state.ownerKey, p_message: message });
+    $("announcementInput").value = "";
+    await loadRoom();
+    showToast("Announcement sent to the room.");
+  } catch (error) { reportRoomError(error, "Could not send this announcement."); }
 }
 
 function wireForms() {
@@ -243,6 +319,8 @@ function wireForms() {
   $("roomKeyInput").value = state.roomKey || state.ownerKey || "";
   $("joinRoomButton").addEventListener("click", joinRoom);
   $("generatePairingsButton").addEventListener("click", generatePairings);
+  $("updateStatusButton").addEventListener("click", updateAttendeeStatus);
+  $("sendAnnouncementButton").addEventListener("click", sendAnnouncement);
   $("copyInviteButton").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(inviteLink()); showToast("Attendee invite link copied."); } catch { showToast(inviteLink()); }
   });

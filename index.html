@@ -168,6 +168,16 @@
         <input id="roomKeyInput" class="room-key-input" placeholder="Attendee invite key" autocomplete="off">
       </div>
       <div id="roomStatus" class="room-status"></div>
+      <div id="roomAnnouncements" class="room-announcements hidden"></div>
+      <div id="organiserAnnouncementBox" class="create-room-box hidden">
+        <p class="room-box-title">Send an announcement</p>
+        <textarea id="announcementInput" maxlength="500" placeholder="Share an update with everyone in the room"></textarea>
+        <button id="sendAnnouncementButton" class="primary-button">Send announcement</button>
+      </div>
+      <div id="attendeeStatusBox" class="room-join-box hidden">
+        <label for="attendeeStatusInput">Your current status</label>
+        <div class="room-controls"><input id="attendeeStatusInput" maxlength="120" placeholder="e.g. The National, or Away / home safe"><button id="updateStatusButton" class="secondary-button">Update</button></div>
+      </div>
       <button id="copyInviteButton" class="secondary-button room-full-button hidden">Copy attendee invite link</button>
       <button id="generatePairingsButton" class="primary-button hidden">Randomise shared partners</button>
       <div id="routeEditor" class="create-room-box hidden"></div>
