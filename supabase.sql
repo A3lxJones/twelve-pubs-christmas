@@ -196,6 +196,21 @@ end; $$;
 revoke all on function public.delete_pub_room(text, text) from public, authenticated;
 grant execute on function public.delete_pub_room(text, text) to anon;
 
+alter table public.pub_announcements add column if not exists author_name text;
+create unique index if not exists pub_announcements_room_author_idx on public.pub_announcements(room_code, author_name) where author_name is not null;
+create or replace function public.post_pub_announcement(p_room_code text, p_invite_key text, p_attendee_name text, p_message text)
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare room public.pub_rooms%rowtype; clean_name text := trim(p_attendee_name); clean_message text := trim(p_message);
+begin
+  select * into room from public.pub_rooms where code = upper(trim(p_room_code));
+  if room.code is null or room.invite_key_hash <> extensions.crypt(trim(p_invite_key), room.invite_key_hash) then raise exception 'Invalid room or invite key'; end if;
+  if char_length(clean_name) < 1 or char_length(clean_message) < 1 or char_length(clean_message) > 500 then raise exception 'Announcement is invalid'; end if;
+  if not exists (select 1 from public.pub_participants where room_code = room.code and name = clean_name) then raise exception 'Join the room before posting an announcement'; end if;
+  delete from public.pub_announcements where room_code = room.code and author_name = clean_name;
+  insert into public.pub_announcements(room_code, author_name, message) values (room.code, clean_name, clean_message);
+  return jsonb_build_object('author_name', clean_name, 'message', clean_message);
+end; $$;
+
 create or replace function public.get_pub_room(
   p_room_code text, p_invite_key text, p_attendee_name text
 ) returns jsonb language plpgsql security definer set search_path = public, extensions as $$

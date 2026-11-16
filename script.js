@@ -216,7 +216,7 @@ function renderRoomStatus(pairings) {
   $("generatePairingsButton").classList.toggle("hidden", !isOwner || roomParticipants.length < 2);
   $("copyInviteButton").classList.toggle("hidden", !roomCode() || !state.roomKey);
   $("routeEditor").classList.toggle("hidden", !isOwner);
-  $("organiserAnnouncementBox").classList.toggle("hidden", !isOwner);
+  $("organiserAnnouncementBox").classList.toggle("hidden", !roomCode() || !state.roomKey);
   $("attendeeStatusBox").classList.toggle("hidden", !roomCode() || !state.roomKey);
   $("refreshRoomButton").classList.toggle("hidden", !roomCode());
   $("deleteRoomButton").classList.toggle("hidden", !isOwner);
@@ -259,7 +259,7 @@ function renderAnnouncements(announcements) {
     const announcement = document.createElement("div");
     announcement.className = "announcement-item";
     const message = document.createElement("span");
-    message.textContent = item.message;
+    message.textContent = `${item.author_name ? `${item.author_name}: ` : ""}${item.message}`;
     const timestamp = document.createElement("small");
     timestamp.textContent = item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
     announcement.append(message, timestamp);
@@ -320,9 +320,9 @@ async function updateAttendeeStatus() {
 }
 async function sendAnnouncement() {
   const message = $("announcementInput").value.trim();
-  if (!message || !state.ownerKey) return showToast("Write an announcement first.");
+  if (!message || !roomCode() || !state.roomKey) return showToast("Write an announcement first.");
   try {
-    await supabaseRpc("post_pub_announcement", { p_room_code: roomCode(), p_owner_key: state.ownerKey, p_message: message });
+    await supabaseRpc("post_pub_announcement", { p_room_code: roomCode(), p_invite_key: state.roomKey, p_attendee_name: state.name, p_message: message });
     $("announcementInput").value = "";
     await loadRoom();
     showToast("Announcement sent to the room.");
