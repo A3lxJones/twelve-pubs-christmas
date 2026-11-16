@@ -180,3 +180,18 @@ grant execute on function public.post_pub_announcement(text, text, text) to anon
 grant execute on function public.update_pub_pairings(text, text, jsonb) to anon;
 grant execute on function public.update_pub_route(text, text, jsonb) to anon;
 grant execute on function public.update_pub_status(text, text, text, text) to anon;
+
+create or replace function public.delete_pub_room(p_room_code text, p_owner_key text)
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare room public.pub_rooms%rowtype; normalized_code text := upper(trim(p_room_code));
+begin
+  select r.* into room from public.pub_rooms r where r.code = normalized_code;
+  if room.code is null or room.owner_key_hash is null or room.owner_key_hash <> extensions.crypt(trim(p_owner_key), room.owner_key_hash) then
+    raise exception 'Invalid organiser key';
+  end if;
+  delete from public.pub_rooms where code = room.code;
+  return jsonb_build_object('deleted', true, 'code', room.code);
+end; $$;
+
+revoke all on function public.delete_pub_room(text, text) from public, authenticated;
+grant execute on function public.delete_pub_room(text, text) to anon;

@@ -219,6 +219,7 @@ function renderRoomStatus(pairings) {
   $("organiserAnnouncementBox").classList.toggle("hidden", !isOwner);
   $("attendeeStatusBox").classList.toggle("hidden", !roomCode() || !state.roomKey);
   $("refreshRoomButton").classList.toggle("hidden", !roomCode());
+  $("deleteRoomButton").classList.toggle("hidden", !isOwner);
   if (isOwner) renderRouteEditor();
 }
 function renderRoomPeople() {
@@ -327,6 +328,28 @@ async function sendAnnouncement() {
     showToast("Announcement sent to the room.");
   } catch (error) { reportRoomError(error, "Could not send this announcement."); }
 }
+async function deleteRoom() {
+  if (!state.ownerKey || !roomCode()) return showToast("Only the organiser can delete this room.");
+  if (!confirm(`Delete room ${roomCode()} permanently? Everyone will be removed and this cannot be undone.`)) return;
+  try {
+    await supabaseRpc("delete_pub_room", { p_room_code: roomCode(), p_owner_key: state.ownerKey });
+    state.roomCode = "";
+    state.roomName = "";
+    state.meetupSpot = "";
+    state.roomKey = "";
+    state.ownerKey = "";
+    roomParticipants = [];
+    roomStatuses = [];
+    setStops(defaultStops);
+    saveState();
+    $("roomCodeInput").value = "";
+    $("roomKeyInput").value = "";
+    renderRoomStatus(null);
+    renderRoomPeople();
+    renderAnnouncements([]);
+    showToast("Room deleted.");
+  } catch (error) { reportRoomError(error, "Could not delete this room."); }
+}
 
 function wireForms() {
   $("attireInput").addEventListener("change", event => $("attireWarning").classList.toggle("hidden", event.target.checked));
@@ -348,6 +371,7 @@ function wireForms() {
   $("generatePairingsButton").addEventListener("click", generatePairings);
   $("updateStatusButton").addEventListener("click", updateAttendeeStatus);
   $("sendAnnouncementButton").addEventListener("click", sendAnnouncement);
+  $("deleteRoomButton").addEventListener("click", deleteRoom);
   $("refreshRoomButton").addEventListener("click", () => loadRoom().catch(error => reportRoomError(error, "Could not refresh the room.")));
   $("copyInviteButton").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(inviteLink()); showToast("Attendee invite link copied."); } catch { showToast(inviteLink()); }
