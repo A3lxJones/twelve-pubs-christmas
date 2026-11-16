@@ -154,3 +154,29 @@ end; $$;
 grant execute on function public.post_pub_announcement(text, text, text) to anon, authenticated;
 grant execute on function public.get_pub_announcements(text, text) to anon, authenticated;
 grant execute on function public.update_pub_status(text, text, text, text) to anon, authenticated;
+
+-- The browser uses the RPC layer only. Keep all tables inaccessible directly
+-- and expose only the key-validated RPCs to the anonymous browser role.
+revoke all on public.pub_rooms, public.pub_participants, public.default_route_stops,
+  public.room_route_stops, public.pub_announcements, public.pub_statuses
+  from public, anon, authenticated;
+revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
+revoke execute on function public.seed_room_route(text) from public, anon, authenticated;
+revoke execute on function public.create_pub_room(text, text, text, text, text, text) from public, authenticated;
+revoke execute on function public.get_pub_announcements(text, text) from public, authenticated;
+revoke execute on function public.get_pub_room(text, text, text) from public, authenticated;
+revoke execute on function public.get_pub_room_owner(text, text) from public, authenticated;
+revoke execute on function public.join_pub_room(text, text, text) from public, authenticated;
+revoke execute on function public.post_pub_announcement(text, text, text) from public, authenticated;
+revoke execute on function public.update_pub_pairings(text, text, jsonb) from public, authenticated;
+revoke execute on function public.update_pub_route(text, text, jsonb) from public, authenticated;
+revoke execute on function public.update_pub_status(text, text, text, text) from public, authenticated;
+grant execute on function public.create_pub_room(text, text, text, text, text, text) to anon;
+grant execute on function public.get_pub_announcements(text, text) to anon;
+grant execute on function public.get_pub_room(text, text, text) to anon;
+grant execute on function public.get_pub_room_owner(text, text) to anon;
+grant execute on function public.join_pub_room(text, text, text) to anon;
+grant execute on function public.post_pub_announcement(text, text, text) to anon;
+grant execute on function public.update_pub_pairings(text, text, jsonb) to anon;
+grant execute on function public.update_pub_route(text, text, jsonb) to anon;
+grant execute on function public.update_pub_status(text, text, text, text) to anon;
