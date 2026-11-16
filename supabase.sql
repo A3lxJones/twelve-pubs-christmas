@@ -195,3 +195,25 @@ end; $$;
 
 revoke all on function public.delete_pub_room(text, text) from public, authenticated;
 grant execute on function public.delete_pub_room(text, text) to anon;
+
+create or replace function public.get_pub_room(
+  p_room_code text, p_invite_key text, p_attendee_name text
+) returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare room public.pub_rooms%rowtype; pairing jsonb; statuses jsonb;
+begin
+  select * into room from public.pub_rooms where code = upper(trim(p_room_code));
+  if room.code is null or room.invite_key_hash <> extensions.crypt(trim(p_invite_key), room.invite_key_hash) then raise exception 'Invalid room or invite key'; end if;
+  pairing := room.pairings -> trim(p_attendee_name);
+  select coalesce(jsonb_agg(jsonb_build_object('name', p.name, 'status', coalesce(s.status, 'No status set'), 'updated_at', s.updated_at) order by p.name), '[]'::jsonb)
+    into statuses
+    from public.pub_participants p
+    left join public.pub_statuses s on s.room_code = p.room_code and s.attendee_name = p.name
+    where p.room_code = room.code;
+  return jsonb_build_object(
+    'room_name', room.room_name,
+    'meetup_spot', room.meetup_spot,
+    'route', (select coalesce(jsonb_agg(to_jsonb(r) order by r.number), '[]'::jsonb) from public.room_route_stops r where r.room_code = room.code),
+    'pairings', case when pairing is null then '{}'::jsonb else jsonb_build_object(trim(p_attendee_name), pairing) end,
+    'statuses', statuses
+  );
+end; $$;
