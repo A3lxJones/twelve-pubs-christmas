@@ -1,4 +1,4 @@
-const stops = [
+const defaultStops = [
   ["Queens SU", "No first names", "No first names.", 54.5847, -5.9347],
   ["Lavertys", "Doubles Match", "Everyone pairs up; losers in the doubles match take a shot (1 game per double).", 54.5897, -5.9327],
   ["Points", "Floor is Lava", "Can't set your drink down once lifted until finished. Penalty: shot.", 54.5919, -5.9325],
@@ -14,8 +14,9 @@ const stops = [
   ["Kremlin (Bonus / Optional)", "Last Ones Standing", "Bonus stop: last ones standing.", 54.5966, -5.9250, "optional"]
 ].map((s, index) => ({ number: index + 1, venue: s[0], rule: s[1], detail: s[2], lat: s[3], lng: s[4], role: s[5] || "official" }));
 
-const officialStops = stops.filter(stop => stop.role === "official");
-const routeStops = stops;
+let stops = defaultStops;
+let officialStops = stops.filter(stop => stop.role === "official");
+let routeStops = stops;
 
 const KEY = "twelve-pubs-state";
 const SUPABASE_URL = "https://agdanbbollpglxtqjkst.supabase.co";
@@ -33,6 +34,13 @@ function loadState() {
   catch { return { ...defaultState, counters: { ...defaultState.counters } }; }
 }
 function saveState() { localStorage.setItem(KEY, JSON.stringify(state)); }
+function setStops(nextStops) {
+  if (!Array.isArray(nextStops) || nextStops.length === 0) return;
+  stops = nextStops.map((stop, index) => ({ ...stop, number: Number(stop.number || index + 1), role: stop.role || "official" }));
+  officialStops = stops.filter(stop => stop.role === "official");
+  routeStops = stops;
+  renderHeader(); renderRoute(); updateMap();
+}
 function $(id) { return document.getElementById(id); }
 function initials(name) { return name ? name.split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase() : "?"; }
 function showToast(message) { const toast = $("toast"); toast.textContent = message; toast.classList.add("show"); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.remove("show"), 3300); }
@@ -160,6 +168,7 @@ async function loadRoom() {
   roomParticipants = room.participants || [];
   state.roomName = room.room_name || state.roomName || roomCode();
   state.meetupSpot = room.meetup_spot || state.meetupSpot || "";
+  if (Array.isArray(room.route) && room.route.length) setStops(room.route);
   saveState();
   const pairing = room.pairings?.[state.name];
   if (pairing) { state.partner = pairing.join(" & "); saveState(); renderHeader(); }
@@ -170,6 +179,32 @@ function renderRoomStatus(pairings) {
   $("roomStatus").innerHTML = roomCode() ? `<strong>${state.roomName || roomCode()}</strong><br><span>${roomCode()}${isOwner ? ` · ${roomParticipants.length} joined` : ""}</span>${isOwner ? `<br><span>${roomParticipants.map(person => person.name).join(" · ") || "No attendees yet."}</span>` : ""}${pairings?.[state.name] ? `<br><b>Your group: ${pairings[state.name].join(" & ") || "solo"}</b>` : ""}` : "";
   $("generatePairingsButton").classList.toggle("hidden", !isOwner || roomParticipants.length < 2);
   $("copyInviteButton").classList.toggle("hidden", !roomCode() || !state.roomKey);
+  $("routeEditor").classList.toggle("hidden", !isOwner);
+  if (isOwner) renderRouteEditor();
+}
+function renderRouteEditor() {
+  $("routeEditor").innerHTML = `<p class="room-box-title">Edit this room's route</p>${stops.map(stop => `<div class="route-edit-row" data-edit-stop="${stop.number}">
+    <strong>${stop.role === "optional" ? "+" : String(officialStops.indexOf(stop) + 1).padStart(2, "0")}</strong>
+    <input data-edit-field="venue" value="${escapeHtml(stop.venue)}" aria-label="Venue name">
+    <input data-edit-field="rule" value="${escapeHtml(stop.rule)}" aria-label="Rule">
+    <textarea data-edit-field="detail" aria-label="Rule detail">${escapeHtml(stop.detail)}</textarea>
+  </div>`).join("")}<button id="saveRouteButton" class="primary-button">Save room route</button>`;
+  $("saveRouteButton").addEventListener("click", saveRoomRoute);
+}
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
+}
+async function saveRoomRoute() {
+  if (!state.ownerKey) return showToast("Only the organiser can edit this route.");
+  const updated = [...document.querySelectorAll("[data-edit-stop]")].map(row => {
+    const original = stops.find(stop => stop.number === Number(row.dataset.editStop));
+    return { ...original, venue: row.querySelector('[data-edit-field="venue"]').value.trim(), rule: row.querySelector('[data-edit-field="rule"]').value.trim(), detail: row.querySelector('[data-edit-field="detail"]').value.trim() };
+  });
+  if (updated.some(stop => !stop.venue || !stop.rule || !stop.detail)) return showToast("Complete every route field before saving.");
+  try {
+    await supabaseRpc("update_pub_route", { p_room_code: roomCode(), p_owner_key: state.ownerKey, p_route: updated });
+    setStops(updated); showToast("Room route saved for everyone.");
+  } catch (error) { reportRoomError(error, "Could not save this room route."); }
 }
 async function joinRoom() {
   const code = $("roomCodeInput").value.trim().toUpperCase().replace(/[^A-Z0-9-]/g, "");

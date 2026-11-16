@@ -23,6 +23,7 @@ The browser uses the public Supabase publishable key in `script.js`. Never add a
 
 - Persistent personal profile, route checklist, and drink/shot counters
 - Private organiser rooms with named meetup spots
+- Organiser-editable room routes copied from the original 12-pub template
 - Organiser-only attendee list and partner randomisation
 - Group-of-three support for odd attendee counts
 - Numbered Belfast route map and directions links
