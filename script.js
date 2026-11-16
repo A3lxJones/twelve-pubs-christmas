@@ -297,7 +297,15 @@ async function joinRoom() {
   try {
     await supabaseRpc("join_pub_room", { p_room_code: code, p_invite_key: key, p_attendee_name: state.name });
     state.roomCode = code; state.roomKey = key; state.ownerKey = ""; saveState(); await loadRoom(); showToast(`Joined private room ${code}.`);
-  } catch (error) { reportRoomError(error, "Could not join. Check the room code, invite key, and Supabase migration."); }
+  } catch (error) {
+    const message = error?.message || "";
+    if (message.includes("already in the room")) {
+      confirm("This name is already in the room. Is this you returning to the same room? Choose OK to continue as this attendee or Cancel to use a different name.");
+      showToast("That name is already in the room. Choose a different name to join.");
+      return;
+    }
+    reportRoomError(error, "Could not join. Check the room code, invite key, and Supabase migration.");
+  }
 }
 async function generatePairings() {
   try {

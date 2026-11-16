@@ -21,6 +21,8 @@ create table if not exists public.pub_participants (
   updated_at timestamptz not null default now(),
   unique(room_code, name)
 );
+create unique index if not exists pub_participants_room_name_ci_idx
+  on public.pub_participants (room_code, lower(trim(name)));
 
 alter table public.pub_rooms enable row level security;
 alter table public.pub_participants enable row level security;
@@ -50,12 +52,15 @@ $$;
 create or replace function public.join_pub_room(
   room_code text, invite_key text, attendee_name text
 ) returns jsonb language plpgsql security definer set search_path = public as $$
-declare room pub_rooms%rowtype;
+declare room pub_rooms%rowtype; normalized_name text := trim(attendee_name);
 begin
   select * into room from pub_rooms where code = upper(trim(room_code));
   if room.code is null or room.invite_key_hash <> extensions.crypt(invite_key, room.invite_key_hash) then raise exception 'Invalid room or invite key'; end if;
-  insert into pub_participants(room_code, name) values (room.code, trim(attendee_name))
-    on conflict (room_code, name) do update set updated_at = now();
+  if length(normalized_name) < 1 then raise exception 'Attendee name is required'; end if;
+  if exists (select 1 from pub_participants where pub_participants.room_code = room.code and lower(trim(pub_participants.name)) = lower(normalized_name)) then
+    raise exception 'This name is already in the room. Choose a different name.';
+  end if;
+  insert into pub_participants(room_code, name) values (room.code, normalized_name);
   return jsonb_build_object('code', room.code, 'pairings', room.pairings);
 end;
 $$;
