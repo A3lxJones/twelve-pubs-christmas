@@ -26,6 +26,7 @@ let state = loadState();
 let map;
 let roomParticipants = [];
 let roomStatuses = [];
+let roomRefreshTimer;
 
 function loadState() {
   try {
@@ -176,6 +177,7 @@ async function loadRoom() {
   const pairing = room.pairings?.[state.name];
   if (pairing) { state.partner = pairing.join(" & "); saveState(); renderHeader(); }
   renderRoomStatus(pairing ? room.pairings : null);
+  renderRoomPeople();
   renderAnnouncements(room.announcements || []);
 }
 function renderRoomStatus(pairings) {
@@ -216,7 +218,32 @@ function renderRoomStatus(pairings) {
   $("routeEditor").classList.toggle("hidden", !isOwner);
   $("organiserAnnouncementBox").classList.toggle("hidden", !isOwner);
   $("attendeeStatusBox").classList.toggle("hidden", !roomCode() || !state.roomKey);
+  $("refreshRoomButton").classList.toggle("hidden", !roomCode());
   if (isOwner) renderRouteEditor();
+}
+function renderRoomPeople() {
+  const panel = $("roomPeople");
+  panel.replaceChildren();
+  const isOwner = Boolean(state.ownerKey);
+  const people = isOwner
+    ? roomParticipants
+    : roomStatuses;
+  if (!people.length) { panel.classList.add("hidden"); return; }
+  panel.classList.remove("hidden");
+  const heading = document.createElement("p");
+  heading.className = "room-box-title";
+  heading.textContent = isOwner ? "People in your room" : "Shared group statuses";
+  panel.append(heading);
+  people.forEach(person => {
+    const row = document.createElement("div");
+    row.className = "room-person";
+    const name = document.createElement("strong");
+    name.textContent = person.name;
+    const status = document.createElement("span");
+    status.textContent = person.status || "No status set";
+    row.append(name, status);
+    panel.append(row);
+  });
 }
 function renderAnnouncements(announcements) {
   const panel = $("roomAnnouncements");
@@ -321,6 +348,7 @@ function wireForms() {
   $("generatePairingsButton").addEventListener("click", generatePairings);
   $("updateStatusButton").addEventListener("click", updateAttendeeStatus);
   $("sendAnnouncementButton").addEventListener("click", sendAnnouncement);
+  $("refreshRoomButton").addEventListener("click", () => loadRoom().catch(error => reportRoomError(error, "Could not refresh the room.")));
   $("copyInviteButton").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(inviteLink()); showToast("Attendee invite link copied."); } catch { showToast(inviteLink()); }
   });
@@ -360,5 +388,9 @@ function applyInviteFromUrl() {
 
 applyInviteFromUrl(); setupTabs(); wireForms(); renderHeader(); renderRoute();
 if (state.roomCode) loadRoom().catch(error => reportRoomError(error, "Shared room is not configured yet."));
+clearInterval(roomRefreshTimer);
+roomRefreshTimer = setInterval(() => {
+  if (roomCode()) loadRoom().catch(() => {});
+}, 15000);
 if (state.onboarded) closeModal("onboardingModal");
 else openModal("onboardingModal");
