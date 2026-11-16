@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071b16">
+  <title>12 Pubs of Christmas</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23e8ba58'/%3E%3Cpath d='M20 18h24v7H20zm3 10h18v20H23z' fill='%23071b16'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="snow" aria-hidden="true">
+    <span class="snowflake snowflake-a">❄</span>
+    <span class="snowflake snowflake-b">·</span>
+    <span class="snowflake snowflake-c">✦</span>
+    <span class="snowflake snowflake-d">❄</span>
+    <span class="snowflake snowflake-e">·</span>
+    <span class="snowflake snowflake-f">❄</span>
+    <span class="snowflake snowflake-g">✧</span>
+    <span class="snowflake snowflake-h">·</span>
+    <span class="snowflake snowflake-i">❄</span>
+    <span class="snowflake snowflake-j">✦</span>
+  </div>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark">✦</span>
+      <div>
+        <p class="eyebrow">BELFAST · FRI 18 DEC</p>
+        <h1>12 Pubs <span>of Christmas</span></h1>
+      </div>
+    </div>
+    <button class="icon-button" id="profileButton" aria-label="Open profile and settings">⚙</button>
+  </header>
+
+  <main>
+    <section class="hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow gold">THE CHRISTMAS COUNTDOWN</p>
+        <h2>One night.<br><em>Twelve pubs.</em></h2>
+        <p class="hero-subtitle">Keep the rules close, look after your mates, and make it to the finish line.</p>
+      </div>
+      <div class="progress-ring" aria-label="Route progress">
+        <strong id="progressNumber">0</strong><span>/12</span>
+        <small>STOPS</small>
+      </div>
+    </section>
+
+    <section class="partner-card" aria-label="Your pub partner">
+      <div class="avatar" id="avatarInitials">?</div>
+      <div class="partner-copy">
+        <span class="label">TONIGHT'S TEAM</span>
+        <strong id="welcomeName">Welcome, traveller</strong>
+        <span id="partnerName">Choose your pub partner</span>
+      </div>
+      <div class="partner-actions"><button class="text-button" id="randomizePartnerButton">Randomise</button><button class="text-button" id="editPartnerButton">Edit</button></div>
+    </section>
+    <section class="meetup-banner" id="meetupBanner" aria-live="polite">
+      <span class="meetup-icon">★</span>
+      <div><span class="label">MEETUP SPOT</span><strong id="meetupSpot">Set by the organiser</strong></div>
+    </section>
+
+    <div class="tab-panels">
+      <section id="routePanel" class="tab-panel active" aria-labelledby="routeTab">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow gold">THE ROUTE</p>
+            <h2>Make it merry</h2>
+          </div>
+          <span class="pill" id="progressLabel">0 / 12 completed</span>
+        </div>
+        <div class="progress-track"><span id="progressBar"></span></div>
+        <div id="routeList" class="route-list"></div>
+      </section>
+
+      <section id="mapPanel" class="tab-panel" aria-labelledby="mapTab">
+        <div class="section-heading">
+          <div><p class="eyebrow gold">CITY CENTRE</p><h2>Find your way</h2></div>
+        </div>
+        <div id="map" class="map" aria-label="Interactive map of all route stops"></div>
+        <p class="map-note">Tap a pin to see the rule. Directions open in your preferred maps app.</p>
+      </section>
+
+      <section id="rulesPanel" class="tab-panel" aria-labelledby="rulesTab">
+        <div class="section-heading">
+          <div><p class="eyebrow gold">ALL NIGHT</p><h2>Global rules</h2></div>
+        </div>
+        <div class="rules-list">
+          <div class="rule-row"><b>01</b><span>Spill a drink</span><strong>Take a shot</strong></div>
+          <div class="rule-row"><b>02</b><span>Fall / trip</span><strong>Take a shot</strong></div>
+          <div class="rule-row"><b>03</b><span>Break a glass</span><strong>Take 2 shots</strong></div>
+          <div class="rule-row"><b>04</b><span>Christmas attire</span><strong>Is a must</strong></div>
+          <div class="rule-row"><b>05</b><span>Group photo in every pub</span><strong>Miss it? Take a shot</strong></div>
+        </div>
+        <div class="note-card">🎄 Keep each other safe. Water is always allowed, and nobody drinks alone.</div>
+      </section>
+
+      <section id="trackerPanel" class="tab-panel" aria-labelledby="trackerTab">
+        <div class="section-heading">
+          <div><p class="eyebrow gold">YOUR NIGHT</p><h2>Keep score</h2></div>
+        </div>
+        <div class="tracker-grid">
+          <div class="counter-card"><span class="counter-icon">🍺</span><span class="counter-label">Pints</span><div class="counter"><button data-counter="pints" data-change="-1">−</button><strong id="pintsCount">0</strong><button data-counter="pints" data-change="1">+</button></div></div>
+          <div class="counter-card"><span class="counter-icon">🥃</span><span class="counter-label">Shots</span><div class="counter"><button data-counter="shots" data-change="-1">−</button><strong id="shotsCount">0</strong><button data-counter="shots" data-change="1">+</button></div></div>
+          <div class="counter-card penalty"><span class="counter-icon">⚠</span><span class="counter-label">Penalty shots</span><div class="counter"><button data-counter="penalties" data-change="-1">−</button><strong id="penaltiesCount">0</strong><button data-counter="penalties" data-change="1">+</button></div></div>
+        </div>
+        <div class="tracker-tip">Tap the plus when a rule catches you. No judgement — just good record keeping.</div>
+      </section>
+    </div>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button class="nav-item active" data-tab="route"><span>♟</span><small>Route</small></button>
+    <button class="nav-item" data-tab="map"><span>⌖</span><small>Map</small></button>
+    <button class="nav-item" data-tab="rules"><span>✦</span><small>Rules</small></button>
+    <button class="nav-item" data-tab="tracker"><span>◷</span><small>Tracker</small></button>
+  </nav>
+
+  <footer class="safety-footer">
+    <button id="sosButton" class="sos-button">🆘 <span>Get home safe</span></button>
+    <button id="copyLocationButton" class="location-button">Copy my current pub location</button>
+  </footer>
+
+  <div class="modal-backdrop" id="onboardingModal" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+    <div class="modal-card">
+      <div class="modal-badge">✦</div>
+      <p class="eyebrow gold">WELCOME TO THE NIGHT</p>
+      <h2 id="onboardingTitle">Ready to get merry?</h2>
+      <p class="modal-intro">Set up your night once. We'll remember your progress on this device.</p>
+      <form id="onboardingForm">
+        <label for="nameInput">Your name <span>*</span></label>
+        <input id="nameInput" required autocomplete="given-name" placeholder="e.g. Alex">
+        <label for="partnerInput">Preferred partner <small>(optional)</small></label>
+        <input id="partnerInput" autocomplete="given-name" placeholder="e.g. Sam">
+        <label class="attire-toggle"><input type="checkbox" id="attireInput"><span class="fake-check"></span><span>I'm wearing Christmas attire</span></label>
+        <p class="attire-warning hidden" id="attireWarning">No festive fit? Stop 1 comes with a penalty drink. Your call, Santa.</p>
+        <button class="primary-button" type="submit">Let's go <span>→</span></button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+    <div class="modal-card compact">
+      <button class="close-button" data-close="profileModal" aria-label="Close settings">×</button>
+      <p class="eyebrow gold">YOUR DETAILS</p><h2 id="profileTitle">Profile & settings</h2>
+      <form id="profileForm">
+        <label for="profileName">Your name</label><input id="profileName" required>
+        <label for="profilePartner">Preferred partner</label><input id="profilePartner">
+        <label class="attire-toggle"><input type="checkbox" id="profileAttire"><span class="fake-check"></span><span>I'm wearing Christmas attire</span></label>
+        <button class="primary-button" type="submit">Save changes</button>
+      </form>
+      <div class="room-divider"></div>
+      <p class="eyebrow gold">SHARED PARTNER ROOM</p>
+      <p class="modal-intro">An organiser creates a private room. Attendees join with the invite key, so different groups cannot see each other.</p>
+      <div class="create-room-box">
+        <p class="room-box-title">Create a new private room</p>
+        <input id="newMeetupSpot" placeholder="Meetup spot e.g. City Hall">
+        <input id="newRoomName" placeholder="Room name e.g. Belfast Christmas">
+        <input id="newRoomCode" maxlength="12" placeholder="Room code e.g. PUBS26">
+        <input id="newInviteKey" placeholder="Attendee invite key (6+ characters)" autocomplete="off">
+        <input id="newOwnerKey" placeholder="Private organiser key (6+ characters)" autocomplete="off">
+        <button id="createRoomButton" class="primary-button">Create room</button>
+      </div>
+      <div class="room-join-box">
+        <label for="roomCodeInput">Join an existing room</label>
+        <div class="room-controls"><input id="roomCodeInput" maxlength="12" placeholder="Room code e.g. KAINOS26"><button id="joinRoomButton" class="secondary-button">Join room</button></div>
+        <input id="roomKeyInput" class="room-key-input" placeholder="Attendee invite key" autocomplete="off">
+      </div>
+      <div id="roomStatus" class="room-status"></div>
+      <button id="copyInviteButton" class="secondary-button room-full-button hidden">Copy attendee invite link</button>
+      <button id="generatePairingsButton" class="primary-button hidden">Randomise shared partners</button>
+      <button id="resetButton" class="danger-button">Reset my data</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="sosModal" role="dialog" aria-modal="true" aria-labelledby="sosTitle">
+    <div class="modal-card compact">
+      <button class="close-button" data-close="sosModal" aria-label="Close safety panel">×</button>
+      <p class="eyebrow gold">LOOK AFTER YOURSELF</p><h2 id="sosTitle">Get home safe</h2>
+      <p class="modal-intro">Save these now, before the night gets busy.</p>
+      <a class="call-row" href="tel:02890809080"><span>Value Cabs</span><strong>028 9080 9080</strong></a>
+      <a class="call-row" href="tel:02890333333"><span>fonaCAB</span><strong>028 9033 3333</strong></a>
+      <button id="sosCopyButton" class="primary-button">Copy current pub location</button>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="script.js"></script>
+</body>
+</html>
